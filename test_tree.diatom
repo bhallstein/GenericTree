@@ -1,0 +1,31 @@
+tree:
+	tree:
+		n0:
+			node_orig_ind: 0
+			parent_gt_ind: -1
+			child_gt_inds: 
+				c1: 1 
+				c2: 2
+		n1:
+			node_orig_ind: 1
+			parent_gt_ind: 0
+			child_gt_inds: 
+		n2:
+			node_orig_ind: 2
+			parent_gt_ind: 0
+			child_gt_inds: 
+		n3:
+			node_orig_ind: 3
+			parent_gt_ind: 2
+			child_gt_inds: 
+		n4:
+			node_orig_ind: 4
+			parent_gt_ind: 3
+			child_gt_inds: 
+		n5:
+			node_orig_ind: 5
+			parent_gt_ind: 2
+			child_gt_inds: 
+	free_list:
+		n1: 3
+		n2: 4
