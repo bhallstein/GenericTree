@@ -277,28 +277,28 @@ public:
   }
 
   void fromDiatom(Diatom &d) {
-    _assert(d.isTable());
+    _assert(d.is_table());
     reset();
 
     Diatom &d_tree      = d["tree"];
     Diatom &d_free_list = d["free_list"];
-    _assert(d_tree.isTable());
-    _assert(d_free_list.isTable());
+    _assert(d_tree.is_table());
+    _assert(d_free_list.is_table());
 
     // Tree
-    d_tree.each_descendant([&](std::string &key, Diatom &dn) {
+    d_tree.each([&](std::string &key, Diatom &dn) {
       Diatom &d_node       = dn["node"];
       Diatom &d_parent_ind = dn["parent_ind"];
       Diatom &d_child_inds = dn["child_inds"];
 
       _assert(d_parent_ind.isNumber());
-      _assert(d_child_inds.isTable());
+      _assert(d_child_inds.is_table());
 
       typename GenericTree_Referential<T>::NodeInfo n;
       n.node            = _fromDiatom(d_node);
       n.index_of_parent = (int) d_parent_ind.number_value();
 
-      d_child_inds.each_descendant([&](std::string &ch_key, Diatom &dc) {
+      d_child_inds.each([&](std::string &ch_key, Diatom &dc) {
         _assert(dc.isNumber());
         n.children.push_back((int) dc.number_value());
       });
@@ -307,7 +307,7 @@ public:
     });
 
     // Free list
-    d_free_list.each_descendant([&](std::string, Diatom &li) {
+    d_free_list.each([&](std::string, Diatom &li) {
       _assert(li.isNumber());
       free_list.push_back((int) li.number_value());
 

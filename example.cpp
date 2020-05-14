@@ -30,10 +30,10 @@ int main() {
   // Load tree from disk
 
   Diatom d_tree = diatomFromFile("test_tree.diatom");
-  assert(d_tree.isTable());
-  assert(d_tree["tree"].isTable());
-  assert(d_tree["tree"]["tree"].isTable());
-  assert(d_tree["tree"]["free_list"].isTable());
+  assert(d_tree.is_table());
+  assert(d_tree["tree"].is_table());
+  assert(d_tree["tree"]["tree"].is_table());
+  assert(d_tree["tree"]["free_list"].is_table());
   d_tree["tree"].print();
 
   GenericTree<int> t_d;

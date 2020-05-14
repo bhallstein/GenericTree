@@ -311,43 +311,43 @@ public:
   }
 
   void fromDiatom(Diatom &d, std::vector<T*> &ext_nodes) {
-    _assert(d.isTable());
+    _assert(d.is_table());
     reset();
 
     Diatom &d_tree      = d["tree"];
     Diatom &d_free_list = d["free_list"];
-    _assert(d_tree.isTable());
-    _assert(d_free_list.isTable());
+    _assert(d_tree.is_table());
+    _assert(d_free_list.is_table());
 
     // Tree
-    d_tree.each_descendant([&](std::string &key, Diatom &dn) {
+    d_tree.each([&](std::string &key, Diatom &dn) {
       Diatom &d_node_orig_ind = dn["node_orig_ind"];
       Diatom &d_parent_gt_ind = dn["parent_gt_ind"];
       Diatom &d_child_gt_inds = dn["child_gt_inds"];
 
-      _assert(d_node_orig_ind.isNumber());
-      _assert(d_parent_gt_ind.isNumber());
-      _assert(d_child_gt_inds.isTable());
+      _assert(d_node_orig_ind.is_number());
+      _assert(d_parent_gt_ind.is_number());
+      _assert(d_child_gt_inds.is_table());
 
-      int node_orig_ind = (int) d_node_orig_ind.number_value();
+      int node_orig_ind = (int) d_node_orig_ind.value__number;
       _assert(node_orig_ind >= 0 && node_orig_ind < ext_nodes.size());
 
       typename GenericTree<T>::NodeInfo n;
         n.node            = ext_nodes[node_orig_ind];
-        n.index_of_parent = (int) d_parent_gt_ind.number_value();
+        n.index_of_parent = (int) d_parent_gt_ind.value__number;
 
-      d_child_gt_inds.each_descendant([&](std::string &ch_key, Diatom &dc) {
-        _assert(dc.isNumber());
-        n.children.push_back((int) dc.number_value());
+      d_child_gt_inds.each([&](std::string &ch_key, Diatom &dc) {
+        _assert(dc.is_number());
+        n.children.push_back((int) dc.value__number);
       });
 
       nodes.push_back(n);
     });
 
     // Free list
-    d_free_list.each_descendant([&](std::string &key, Diatom &li) {
-      _assert(li.isNumber());
-      free_list.push_back((int) li.number_value());
+    d_free_list.each([&](std::string &key, Diatom &li) {
+      _assert(li.is_number());
+      free_list.push_back((int) li.value__number);
 
       // NOTE: Suppose the free list contains an index beyond the 'used' portion
       //  of the nodes vector. In this case after deserialization conceivably we could
