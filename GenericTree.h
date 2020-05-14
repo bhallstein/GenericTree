@@ -10,7 +10,7 @@
 //  - i.e. convert the node pointers to indices in an (external) object array, then just write out
 //    the nodes array and the free list
 //
-//
+// MIT licensed: http://opensource.org/licenses/MIT
 
 #ifndef __GenericTree_h
 #define __GenericTree_h

@@ -29,7 +29,7 @@ int main() {
 
   // Load tree from disk
 
-  Diatom d_tree = diatomFromFile("test_tree.diatom");
+  Diatom d_tree = diatomFromFile("tree.diatom");
   assert(d_tree.is_table());
   assert(d_tree["tree"].is_table());
   assert(d_tree["tree"]["tree"].is_table());
