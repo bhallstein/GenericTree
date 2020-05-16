@@ -1,0 +1,3 @@
+[submodule "Diatom"]
+	path = Diatom
+	url = git@github.com:bhallstein/Diatom.git

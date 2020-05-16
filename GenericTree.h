@@ -7,8 +7,8 @@
 //
 // Serialization:
 //  - you can serialize the tree by writing out all tracked indices
-//  - i.e. convert the node pointers to indices in an (external) object array, then just write out
-//    the nodes array and the free list
+//  - i.e. convert the node pointers to indices in an (external) object array, then
+//    just write out the nodes array and the free list
 //
 // MIT licensed: http://opensource.org/licenses/MIT
 
@@ -20,10 +20,7 @@
 
 // Optionally enable serialization
 #ifdef _GT_ENABLE_SERIALIZATION
-  #include "Diatom.h"
-  #define _GT_SZ(x) x
-#else
-  #define _GT_SZ(x)
+  #include "Diatom/Diatom.h"
 #endif
 
 // Optionally disable asserts
@@ -40,7 +37,6 @@
 template <class T>
 class GenericTree {
 public:
-
   struct NodeInfo {
     T *node;
     int index_of_parent;
@@ -114,12 +110,33 @@ public:
       removeChildren(i);
   }
 
+  void flat_print() {
+    for (int i=0; i < nodes.size(); ++i) {
+      printf("i: %d\n", i);
+
+      bool skip = indexIsInFreeList(i);
+      if (skip) {
+        printf("- in free list\n");
+      }
+
+      if (!skip) {
+        printf("- index_of_parent: %d\n", nodes[i].index_of_parent);
+        printf("- children:\n");
+        for (auto c : nodes[i].children) {
+          printf("  - %d\n", c);
+        }
+      }
+    }
+  }
+
   void print() {
     int i_top = indexOfTopNode();
-    if (i_top == __GT_NOT_FOUND)
+    if (i_top == __GT_NOT_FOUND) {
       printf("[Tree is empty]\n");
-    else
+    }
+    else {
       recursivelyPrintNode(i_top);
+    }
 
     size_t n_fl = free_list.size();
     printf("%lu %s on free list", n_fl, n_fl == 1 ? "entry" : "entries");
@@ -133,25 +150,36 @@ public:
 
   template <class Functor>
   void walk(Functor f, int i = -2) {
-    if (i == -2) i = indexOfTopNode();
-    if (i == __GT_NOT_FOUND) return;
+    if (i == -2) {
+      i = indexOfTopNode();
+    }
 
-    f(nodes[i].node, i);
+    if (i == __GT_NOT_FOUND) {
+      return;
+    }
 
-    for (auto &i : nodes[i].children)
+    auto &n = nodes[i];
+
+    f(n.node, i);
+    for (auto &i : n.children) {
       walk(f, i);
+    }
   }
 
   int indexOfTopNode() {
-    if (isEmpty())
+    if (isEmpty()) {
       return __GT_NOT_FOUND;
+    }
 
     int i_top = 0;
-    while (indexIsInFreeList(i_top))
+    while (indexIsInFreeList(i_top)) {
       ++i_top;
+    }
 
-    while (nodes[i_top].index_of_parent != __GT_NOT_FOUND)
+    while (nodes[i_top].index_of_parent != __GT_NOT_FOUND) {
       i_top = nodes[i_top].index_of_parent;
+    }
+
     return i_top;
   }
 
@@ -185,7 +213,6 @@ public:
   }
 
 protected:
-
   std::vector<NodeInfo> nodes;
   std::vector<int> free_list;
 
@@ -245,7 +272,7 @@ protected:
 
     NodeInfo &n = nodes[i];
 
-    printf("☐  %d  index: %d  ", *n.node, i);
+    printf("☐  index: %d  ", i);
     printf("children: ");
     for (auto &i : n.children)
       printf("%d ", i);
@@ -260,22 +287,14 @@ protected:
     indentCount -= 1;
   }
 
-_GT_SZ(
+#ifdef _GT_ENABLE_SERIALIZATION
 
-  /*** Serialization ***/
-
+  // Serialization
+  // -----------------------------
   // Assuming the tree owner has a vector of pointers to the nodes in the tree,
-  // we can easily serialize the tree by writing out all the relevant indices.
-
-  int indexOfOriginalNodeInVector(T *node, std::vector<T*> &vec) {
-    for (int i=0, n = (int)vec.size(); i < n; ++i)
-      if (vec[i] == node)
-        return i;
-    return __GT_NOT_FOUND;
-  }
+  // we can serialize the tree by writing out all the relevant indices.
 
 public:
-
   Diatom toDiatom(std::vector<T*> &original_nodes) {
     Diatom d;
 
@@ -285,14 +304,14 @@ public:
 
       int i = 0;
       for (auto n : nodes) {
-        int node_orig_ind = indexOfOriginalNodeInVector(n.node, original_nodes);
-        _assert(node_orig_ind != __GT_NOT_FOUND);
+        int i__ext = indexOfOriginalNodeInVector(n.node, original_nodes);
+        _assert(i__ext != __GT_NOT_FOUND);
 
         Diatom &d_node = d["tree"][srlz_index(i++)] = Diatom();
 
-        d_node["node_orig_ind"] = (double) node_orig_ind;
-        d_node["parent_gt_ind"] = (double) n.index_of_parent;
-        Diatom &dch = d_node["child_gt_inds"] = Diatom();
+        d_node["i__ext"] = (double) i__ext;
+        d_node["i__parent"] = (double) n.index_of_parent;
+        Diatom &dch = d_node["i__children"] = Diatom();
         int j = 0;
         for (auto ind : n.children)
           dch[srlz_index(j++)] = (double) ind;
@@ -312,31 +331,25 @@ public:
 
   void fromDiatom(Diatom &d, std::vector<T*> &ext_nodes) {
     _assert(d.is_table());
+    _assert(d["tree"].is_table());
+    _assert(d["free_list"].is_table());
+
     reset();
 
-    Diatom &d_tree      = d["tree"];
-    Diatom &d_free_list = d["free_list"];
-    _assert(d_tree.is_table());
-    _assert(d_free_list.is_table());
-
     // Tree
-    d_tree.each([&](std::string &key, Diatom &dn) {
-      Diatom &d_node_orig_ind = dn["node_orig_ind"];
-      Diatom &d_parent_gt_ind = dn["parent_gt_ind"];
-      Diatom &d_child_gt_inds = dn["child_gt_inds"];
+    d["tree"].each([&](std::string &key, Diatom &dnode) {
+      _assert(dnode["i__ext"].is_number());
+      _assert(dnode["i__parent"].is_number());
+      _assert(dnode["i__children"].is_table());
 
-      _assert(d_node_orig_ind.is_number());
-      _assert(d_parent_gt_ind.is_number());
-      _assert(d_child_gt_inds.is_table());
+      int i__ext = (int) dnode["i__ext"].value__number;
+      _assert(i__ext >= 0 && i__ext < ext_nodes.size());
 
-      int node_orig_ind = (int) d_node_orig_ind.value__number;
-      _assert(node_orig_ind >= 0 && node_orig_ind < ext_nodes.size());
+      GenericTree<T>::NodeInfo n;
+      n.node            = ext_nodes[i__ext];
+      n.index_of_parent = (int) dnode["i__parent"].value__number;
 
-      typename GenericTree<T>::NodeInfo n;
-        n.node            = ext_nodes[node_orig_ind];
-        n.index_of_parent = (int) d_parent_gt_ind.value__number;
-
-      d_child_gt_inds.each([&](std::string &ch_key, Diatom &dc) {
+      dnode["i__children"].each([&](std::string &ch_key, Diatom &dc) {
         _assert(dc.is_number());
         n.children.push_back((int) dc.value__number);
       });
@@ -345,7 +358,7 @@ public:
     });
 
     // Free list
-    d_free_list.each([&](std::string &key, Diatom &li) {
+    d["free_list"].each([&](std::string &key, Diatom &li) {
       _assert(li.is_number());
       free_list.push_back((int) li.value__number);
 
@@ -359,12 +372,22 @@ public:
     });
   }
 
+protected:
+  int indexOfOriginalNodeInVector(T *node, std::vector<T*> &vec) {
+    for (int i=0, n = (int)vec.size(); i < n; ++i) {
+      if (vec[i] == node) {
+        return i;
+      }
+    }
+    return __GT_NOT_FOUND;
+  }
+
 private:
   static std::string srlz_index(int i) {
     return std::string("n") + std::to_string(i);
   }
 
-) // _GT_SZ
+#endif
 
 };
 
