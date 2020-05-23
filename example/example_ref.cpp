@@ -7,7 +7,7 @@ Diatom _toDiatom(int x) {
   return d;
 }
 int _fromDiatom(Diatom d) {
-  return d.number_value();
+  return d.value__number();
 }
 
 void _print(int d) {
