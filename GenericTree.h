@@ -11,6 +11,7 @@
 //    just write out the nodes array and the free list
 //
 // MIT licensed: http://opensource.org/licenses/MIT
+//
 
 #ifndef __GenericTree_h
 #define __GenericTree_h
@@ -50,14 +51,14 @@ public:
 
   int addNode(T &x, T *parent) {
     _assert(!nodeIsPresent(x));
-    NodeInfo ni = { &x, __GT_NOT_FOUND };
-
+    NodeInfo node = { &x, __GT_NOT_FOUND };
 
     bool was_empty = isEmpty();
+    int i__prev_top = was_empty ? __GT_NOT_FOUND : indexOfTopNode();
 
     if (parent) {
-      ni.index_of_parent = indexOfNode(*parent);
-      _assert(ni.index_of_parent != __GT_NOT_FOUND);
+      node.index_of_parent = indexOfNode(*parent);
+      _assert(node.index_of_parent != __GT_NOT_FOUND);
     }
 
 
@@ -68,26 +69,24 @@ public:
       ind = free_list.back();
       free_list.pop_back();
       _assert(ind < nodes.size());
-      nodes[ind] = ni;
+      nodes[ind] = node;
     }
 
     else {
-      nodes.push_back(ni);
+      nodes.push_back(node);
       ind = int(nodes.size()) - 1;
     }
 
     // Add node to parent's children array
-    if (parent)
-      nodes[ni.index_of_parent].children.push_back(ind);
+    if (parent) {
+      nodes[node.index_of_parent].children.push_back(ind);
+    }
 
     // If the node is being inserted at the top, deal with current
     // top node (if present)
     else if (!was_empty) {
-      int i_top = indexOfTopNode();
-      if (i_top != __GT_NOT_FOUND) {
-        nodes[ind].children.push_back(i_top);
-        nodes[i_top].index_of_parent = ind;
-      }
+      nodes[ind].children.push_back(i__prev_top);
+      nodes[i__prev_top].index_of_parent = ind;
     }
 
     return ind;
@@ -107,25 +106,6 @@ public:
 
     if (recursivelyRemoveChildren)
       removeChildren(i);
-  }
-
-  void flat_print() {
-    for (int i=0; i < nodes.size(); ++i) {
-      printf("i: %d\n", i);
-
-      bool skip = indexIsInFreeList(i);
-      if (skip) {
-        printf("- in free list\n");
-      }
-
-      if (!skip) {
-        printf("- index_of_parent: %d\n", nodes[i].index_of_parent);
-        printf("- children:\n");
-        for (auto c : nodes[i].children) {
-          printf("  - %d\n", c);
-        }
-      }
-    }
   }
 
   void print() {

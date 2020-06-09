@@ -1,19 +1,14 @@
 //
-// GenericTree.h
+// GenericTree_Nodeless.h
 //
-// A tree.
-//
-// Parent & child relationships are tracked using indices.
-//
-// Serialization:
-//  - you can serialize the tree by writing out all tracked indices
-//  - i.e. convert the node pointers to indices in an (external) object array, then
-//    just write out the nodes array and the free list
+// - This version of GenericTree just tracks indices
+// - Is probably better to use this than GenericTree
 //
 // MIT licensed: http://opensource.org/licenses/MIT
+//
 
-#ifndef __GenericTree_h
-#define __GenericTree_h
+#ifndef __GenericTree_Nodeless_h
+#define __GenericTree_Nodeless_h
 
 #include <vector>
 #include <cstdio>
@@ -31,15 +26,11 @@
   #define _assert(x) assert(x)
 #endif
 
-#define __GT_NOT_FOUND -1
 
-
-template <class T>
-class GenericTree {
+class GenericTree_Nodeless {
 public:
-  struct NodeInfo {
-    T *node;
-    int index_of_parent;
+  struct Node {
+    int parent;
     std::vector<int> children;
   };
 
@@ -48,89 +39,81 @@ public:
     free_list.clear();
   }
 
-  int addNode(T &x, T *parent) {
-    _assert(!nodeIsPresent(x));
-    NodeInfo ni = { &x, __GT_NOT_FOUND };
-
+  int addNode(int parent) {
+    Node node = { parent };
 
     bool was_empty = isEmpty();
 
-    if (parent) {
-      ni.index_of_parent = indexOfNode(*parent);
-      _assert(ni.index_of_parent != __GT_NOT_FOUND);
-    }
-
-
-    // Add the node to the nodes vector
-    int ind = -1;
+    // Return an index for the caller to use to add the node to the externally-managed vector.
+    int i = -1;
+    int i__prev_top = was_empty ? -1 : indexOfTopNode();
 
     if (free_list.size() > 0) {
-      ind = free_list.back();
+      i = free_list.back();
       free_list.pop_back();
-      _assert(ind < nodes.size());
-      nodes[ind] = ni;
-    }
 
+      nodes[i] = node;
+    }
     else {
-      nodes.push_back(ni);
-      ind = int(nodes.size()) - 1;
+      i = (int) nodes.size();
+      nodes.push_back(node);
     }
 
     // Add node to parent's children array
-    if (parent)
-      nodes[ni.index_of_parent].children.push_back(ind);
-
-    // If the node is being inserted at the top, deal with current
-    // top node (if present)
-    else if (!was_empty) {
-      int i_top = indexOfTopNode();
-      if (i_top != __GT_NOT_FOUND) {
-        nodes[ind].children.push_back(i_top);
-        nodes[i_top].index_of_parent = ind;
-      }
+    if (parent != -1) {
+      nodes[parent].children.push_back(i);
     }
 
-    return ind;
+    // Or if the node is being inserted at the top, deal with current
+    // top node (if present)
+    if (parent == -1 && !was_empty) {
+      nodes[i].children.push_back(i__prev_top);
+      nodes[i__prev_top].parent = i;
+    }
+
+    return i;
   }
 
-  void removeNode(T &x, bool recursivelyRemoveChildren) {
-    int i = indexOfNode(x);
-    _assert(i != __GT_NOT_FOUND);
+  template<class T>
+  int addNodeAndInsert(int parent, T item, std::vector<T> ext_nodes) {
+    int i = addNode(parent);
 
-    NodeInfo &node = nodes[i];
+    if (i == ext_nodes.size()) {
+      ext_nodes.push_back(item);
+    }
+    else {
+      ext_nodes[i] = item;
+    }
+
+    return i;
+  }
+
+  void removeNode(int i, bool recursively_remove_children) {
+    _assert(i > 0 && i < nodes.size());
+
+    Node &node = nodes[i];
     free_list.push_back(i);
 
-    int parent_ind = node.index_of_parent;
-    if (parent_ind != __GT_NOT_FOUND) {
-      removeChild_ForNodeAtIndex(parent_ind, i);
+    if (node.parent != -1) {
+      unmakeChild(node.parent, i);
     }
 
-    if (recursivelyRemoveChildren)
+    if (recursively_remove_children) {
       removeChildren(i);
+    }
   }
 
-  void flat_print() {
-    for (int i=0; i < nodes.size(); ++i) {
-      printf("i: %d\n", i);
+  int indexForChild(int parent, int child_in_children_vec) {
+    _assert(parent >= 0 && parent < nodes.size());
+    _assert(child_in_children_vec >= 0);
+    _assert(child_in_children_vec < nodes[parent].children.size());
 
-      bool skip = indexIsInFreeList(i);
-      if (skip) {
-        printf("- in free list\n");
-      }
-
-      if (!skip) {
-        printf("- index_of_parent: %d\n", nodes[i].index_of_parent);
-        printf("- children:\n");
-        for (auto c : nodes[i].children) {
-          printf("  - %d\n", c);
-        }
-      }
-    }
+    return nodes[parent].children[child_in_children_vec];
   }
 
   void print() {
     int i_top = indexOfTopNode();
-    if (i_top == __GT_NOT_FOUND) {
+    if (i_top == -1) {
       printf("[Tree is empty]\n");
     }
     else {
@@ -141,78 +124,59 @@ public:
     printf("%lu %s on free list", n_fl, n_fl == 1 ? "entry" : "entries");
     if (n_fl > 0) {
       printf(" - ");
-      for (int &i : free_list)
+      for (int &i : free_list) {
         printf("%d ", i);
+      }
     }
     printf("\n\n");
   }
 
   template <class Functor>
   void walk(Functor f, int i = -2) {
+    if (i == -1) {
+      return;
+    }
+
     if (i == -2) {
       i = indexOfTopNode();
     }
 
-    if (i == __GT_NOT_FOUND) {
-      return;
-    }
-
-    auto &n = nodes[i];
-
-    f(n.node, i);
-    for (auto &i : n.children) {
+    f(i);
+    for (auto &i : nodes[i].children) {
       walk(f, i);
     }
   }
 
   int indexOfTopNode() {
     if (isEmpty()) {
-      return __GT_NOT_FOUND;
+      return -1;
     }
 
     int i_top = 0;
     while (indexIsInFreeList(i_top)) {
       ++i_top;
     }
-
-    while (nodes[i_top].index_of_parent != __GT_NOT_FOUND) {
-      i_top = nodes[i_top].index_of_parent;
+    while (nodes[i_top].parent != -1) {
+      i_top = nodes[i_top].parent;
     }
 
     return i_top;
   }
 
-  int parentOfNode(int i) {
-    _assert(i < nodes.size());
-    return nodes[i].index_of_parent;
+  int nChildren(int i) {
+    return (int) nodes[i].children.size();
   }
 
-  int nChildren(int node_i) {
-    _assert(node_i < nodes.size());
-    return (int) nodes[node_i].children.size();
-  }
-  std::vector<int> children(int node_i) {
-    assert(node_i < nodes.size());
-    return nodes[node_i].children;
-  }
-
-  int childOfNode(int node_i, int child_i) {
-    _assert(node_i < nodes.size());
-    _assert(child_i < nodes[node_i].children.size());
-    return nodes[node_i].children[child_i];
-  }
-
-  T* get(int i) {
-    _assert(i < nodes.size());
-    return nodes[i].node;
+  int parentIndex(int i) {
+    return nodes[i].parent;
   }
 
   bool isEmpty() {
-    return (nodes.size() == free_list.size());
+    return nodes.size() == free_list.size();
   }
 
 protected:
-  std::vector<NodeInfo> nodes;
+  std::vector<Node> nodes;
   std::vector<int> free_list;
 
   void removeChildren(int i) {
@@ -224,47 +188,35 @@ protected:
     }
   }
 
-  bool nodeIsPresent(T &x) {
-    // The node is present if it is in the nodes array, and its index is not in
-    // the free list
-    int i = indexOfNode(x);
-    return i != __GT_NOT_FOUND && !indexIsInFreeList(i);
+  bool nodeIsPresent(int i) {
+    return i != -1 && !indexIsInFreeList(i);
   }
 
-  bool indexIsInFreeList(int ind) {
-    for (const auto &i : free_list) {
-      if (i == ind) {
+  bool indexIsInFreeList(int i) {
+    for (const auto &f : free_list) {
+      if (i == f) {
         return true;
       }
     }
     return false;
   }
 
-  int indexOfNode(T &x) {
-    for (int i=0, n = int(nodes.size()); i < n;  ++i) {
-      if (nodes[i].node == &x) {
-        return i;
-      }
-    }
-    return __GT_NOT_FOUND;
-  }
+  void unmakeChild(int parent, int child_to_remove) {
+    _assert(parent > 0 && parent < nodes.size());
+    _assert(child_to_remove > 0 && child_to_remove < nodes.size());
 
-  void removeChild_ForNodeAtIndex(int parent_ind, int child_ind) {
-    _assert(parent_ind < nodes.size());
-    _assert(child_ind < nodes.size());
+    auto &children = nodes[parent].children;
 
-    NodeInfo &parent_node = nodes[parent_ind];
-    std::vector<int> &children = parent_node.children;
     std::vector<int>::iterator it;
-
     for (it = children.begin(); it != children.end(); ++it) {
-      if (*it == child_ind) {
+      if (*it == child_to_remove) {
         break;
       }
     }
 
-    _assert(it != children.end());
-    children.erase(it);
+    if (it != children.end()) {
+      children.erase(it);
+    }
   }
 
   int indentCount = 0;
@@ -274,7 +226,7 @@ protected:
       else                      { printf("   "); }
     }
 
-    NodeInfo &n = nodes[i];
+    Node &n = nodes[i];
 
     printf("☐  index: %d  ", i);
     printf("children: ");
@@ -282,8 +234,8 @@ protected:
       printf("%d ", i);
     }
     printf(" parent: ");
-    if (n.index_of_parent == __GT_NOT_FOUND) { printf("[none]"); }
-    else                                     { printf("%d", n.index_of_parent); }
+    if (n.parent == -1) { printf("[none]"); }
+    else                { printf("%d", n.parent); }
     printf("\n");
 
     indentCount += 1;
@@ -302,26 +254,22 @@ public:
   // Assuming the tree owner has a vector of pointers to the nodes in the tree,
   // we can serialize the tree by writing out all the relevant indices.
 
-  Diatom toDiatom(std::vector<T*> &original_nodes) {
+  Diatom toDiatom() {
     Diatom d;
 
     // Tree
     {
       d["tree"] = Diatom();
 
-      int i = 0;
-      for (auto n : nodes) {
-        int i__ext = indexOfOriginalNodeInVector(n.node, original_nodes);
-        _assert(i__ext != __GT_NOT_FOUND);
+      for (int i=0; i < nodes.size(); ++i) {
+        Node &n = nodes[i];
+        Diatom &d_node = d["tree"][srlz_index(i)] = Diatom();
 
-        Diatom &d_node = d["tree"][srlz_index(i++)] = Diatom();
-
-        d_node["i__ext"] = (double) i__ext;
-        d_node["i__parent"] = (double) n.index_of_parent;
-        Diatom &dch = d_node["i__children"] = Diatom();
-        int j = 0;
-        for (auto ind : n.children) {
-          dch[srlz_index(j++)] = (double) ind;
+        d_node["i"] = (double) i;
+        d_node["i__parent"] = (double) n.parent;
+        d_node["i__children"] = Diatom();
+        for (int j=0; j < n.children.size(); ++j) {
+          d_node["i__children"][srlz_index(j)] = (double) n.children[j];
         }
       }
     }
@@ -329,16 +277,15 @@ public:
     // Free list
     {
       d["free_list"] = Diatom();
-      int i = 0;
-      for (auto ind : free_list) {
-        d["free_list"][srlz_index(i++)] = (double) ind;
+      for (int i=0; i < free_list.size(); ++i) {
+        d["free_list"][srlz_index(i)] = (double) i;
       }
     }
 
     return d;
   }
 
-  void fromDiatom(Diatom &d, std::vector<T*> &ext_nodes) {
+  void fromDiatom(Diatom &d) {
     _assert(d.is_table());
     _assert(d["tree"].is_table());
     _assert(d["free_list"].is_table());
@@ -346,30 +293,31 @@ public:
     reset();
 
     // Tree
-    d["tree"].each([&](std::string &key, Diatom &dnode) {
-      _assert(dnode["i__ext"].is_number());
-      _assert(dnode["i__parent"].is_number());
-      _assert(dnode["i__children"].is_table());
+    d["tree"].each([&](std::string &key, Diatom &item) {
+      _assert(item["i"].is_number());
+      _assert(item["i__parent"].is_number());
+      _assert(item["i__children"].is_table());
 
-      int i__ext = (int) dnode["i__ext"].value__number;
-      _assert(i__ext >= 0 && i__ext < ext_nodes.size());
+      int i = (int) item["i"].value__number;
+      int parent = (int) item["i__parent"].value__number;
 
-      GenericTree<T>::NodeInfo n;
-      n.node            = ext_nodes[i__ext];
-      n.index_of_parent = (int) dnode["i__parent"].value__number;
+      Node n = { parent };
 
-      dnode["i__children"].each([&](std::string &ch_key, Diatom &dc) {
-        _assert(dc.is_number());
-        n.children.push_back((int) dc.value__number);
+      item["i__children"].each([&](std::string &ch_key, Diatom &c) {
+        _assert(c.is_number());
+        n.children.push_back((int) c.value__number);
       });
 
-      nodes.push_back(n);
+      if (nodes.size() <= i) {
+        nodes.resize(i + 1);
+      }
+      nodes[i] = n;
     });
 
     // Free list
-    d["free_list"].each([&](std::string &key, Diatom &li) {
-      _assert(li.is_number());
-      free_list.push_back((int) li.value__number);
+    d["free_list"].each([&](std::string &key, Diatom &f) {
+      _assert(f.is_number());
+      free_list.push_back((int) f.value__number);
 
       // NOTE: Suppose the free list contains an index beyond the 'used' portion
       //  of the nodes vector. In this case after deserialization conceivably we could
@@ -378,16 +326,6 @@ public:
       //  entire nodes vector - even items that are on the free list. (Supposing we're
       //  wrong in thinking it's impossible, an assert in addNode() checks for this.)
     });
-  }
-
-protected:
-  int indexOfOriginalNodeInVector(T *node, std::vector<T*> &vec) {
-    for (int i=0, n = (int)vec.size(); i < n; ++i) {
-      if (vec[i] == node) {
-        return i;
-      }
-    }
-    return __GT_NOT_FOUND;
   }
 
 private:

@@ -9,6 +9,8 @@
 //  - should be built so one can store either value types or pointers
 //  - then could either require the user to track index or not
 //
+// MIT licensed: http://opensource.org/licenses/MIT
+//
 
 #ifndef __GenericTree_Referential_h
 #define __GenericTree_Referential_h
