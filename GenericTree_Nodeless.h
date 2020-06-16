@@ -75,7 +75,7 @@ public:
   }
 
   template<class T>
-  int addNodeAndInsert(int parent, T item, std::vector<T> ext_nodes) {
+  int addNodeAndInsert(int parent, T item, std::vector<T> &ext_nodes) {
     int i = addNode(parent);
 
     if (i == ext_nodes.size()) {
