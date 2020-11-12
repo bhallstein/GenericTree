@@ -298,14 +298,14 @@ public:
       _assert(item["i__parent"].is_number());
       _assert(item["i__children"].is_table());
 
-      int i = (int) item["i"].value__number;
-      int parent = (int) item["i__parent"].value__number;
+      int i = (int) item["i"].number_value;
+      int parent = (int) item["i__parent"].number_value;
 
       Node n = { parent };
 
       item["i__children"].each([&](std::string &ch_key, Diatom &c) {
         _assert(c.is_number());
-        n.children.push_back((int) c.value__number);
+        n.children.push_back((int) c.number_value);
       });
 
       if (nodes.size() <= i) {
@@ -317,7 +317,7 @@ public:
     // Free list
     d["free_list"].each([&](std::string &key, Diatom &f) {
       _assert(f.is_number());
-      free_list.push_back((int) f.value__number);
+      free_list.push_back((int) f.number_value);
 
       // NOTE: Suppose the free list contains an index beyond the 'used' portion
       //  of the nodes vector. In this case after deserialization conceivably we could

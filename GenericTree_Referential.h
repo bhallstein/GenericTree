@@ -298,11 +298,11 @@ public:
 
       typename GenericTree_Referential<T>::NodeInfo n;
       n.node            = _fromDiatom(d_node);
-      n.index_of_parent = (int) d_parent_ind.value__number();
+      n.index_of_parent = (int) d_parent_ind.number_value();
 
       d_child_inds.each([&](std::string &ch_key, Diatom &dc) {
         _assert(dc.is_number());
-        n.children.push_back((int) dc.value__number());
+        n.children.push_back((int) dc.number_value());
       });
 
       nodes.push_back(n);
@@ -311,7 +311,7 @@ public:
     // Free list
     d_free_list.each([&](std::string, Diatom &li) {
       _assert(li.is_number());
-      free_list.push_back((int) li.value__number());
+      free_list.push_back((int) li.number_value());
 
       // NOTE: Suppose the free list contains an index beyond the 'used' portion
       //  of the nodes vector. In this case after deserialization conceivably we could

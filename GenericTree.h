@@ -331,16 +331,16 @@ public:
       _assert(dnode["i__parent"].is_number());
       _assert(dnode["i__children"].is_table());
 
-      int i__ext = (int) dnode["i__ext"].value__number;
+      int i__ext = (int) dnode["i__ext"].number_value;
       _assert(i__ext >= 0 && i__ext < ext_nodes.size());
 
       GenericTree<T>::NodeInfo n;
       n.node            = ext_nodes[i__ext];
-      n.index_of_parent = (int) dnode["i__parent"].value__number;
+      n.index_of_parent = (int) dnode["i__parent"].number_value;
 
       dnode["i__children"].each([&](std::string &ch_key, Diatom &dc) {
         _assert(dc.is_number());
-        n.children.push_back((int) dc.value__number);
+        n.children.push_back((int) dc.number_value);
       });
 
       nodes.push_back(n);
@@ -349,7 +349,7 @@ public:
     // Free list
     d["free_list"].each([&](std::string &key, Diatom &li) {
       _assert(li.is_number());
-      free_list.push_back((int) li.value__number);
+      free_list.push_back((int) li.number_value);
 
       // NOTE: Suppose the free list contains an index beyond the 'used' portion
       //  of the nodes vector. In this case after deserialization conceivably we could
